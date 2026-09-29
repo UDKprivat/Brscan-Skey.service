@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+#
+# Copyright (C) 2026 Ulf-Diethelm Kornblum <ulf@kornblum.de>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+#
+# scantoSwitch.sh
+#
+# Beschreibung:
+#   Ermittelt den aktuell angemeldeten Benutzer und startet das eigentliche
+#   Scan-Benutzerskript "scanto" unter diesem Benutzer.
+#
+#   Das Skript dient als Vermittler zwischen einem Systemdienst beziehungsweise
+#   Systembenutzer und einer grafischen Benutzersitzung. Es stellt sicher,
+#   dass Scan-Aufträge im Kontext des aktiven Benutzers ausgeführt werden.
+#
+# Verwendung:
+#   scantoSwitch.sh <Auftragstyp> <Gerät> <Anzeigename> [Argumente...]
+#
+# Gültige Auftragstypen:
+#   file    Datei-Scan
+#   email   Scan mit E-Mail-Versand
+#   image   Bildverarbeitung
+#   ocr     Texterkennung
+#
+# Abhängigkeiten:
+#   /usr/bin/sudo
+#   /usr/local/src/logger.bsrc
+#   ./getActiveUser.sh
+#   ./script/scanto
+#
+# Exit-Codes:
+#   0       Erfolgreiche Ausführung
+#   2       Kein aktiver Benutzer gefunden
+#   3       Home-Verzeichnis nicht erreichbar
+#   100     Ungültiger Auftragstyp
+#
+
+# ----------------------------------------------------------------------
+# Konfiguration
+# ----------------------------------------------------------------------
+
+# Marker, ist der Präfix für die Ausgabe.
+MARKER='BRSCAN_SKEY'
+
+# Gewünschtes Log-Level.
+LEVEL='debug'
+
+# ----------------------------------------------------------------------
+# Abhängigkeiten laden
+# ----------------------------------------------------------------------
+
+# SCRIPT_DIR, SCRIPT_NAME sowie die Logging-Funktionen werden vermutlich
+# durch diese Datei bereitgestellt.
+source '/usr/local/src/logger.bsrc'
+
+debug "Lade Skript zur Ermittlung des aktiven Benutzers: \
+${SCRIPT_DIR}/script/getActiveUser.sh"
+
+# ----------------------------------------------------------------------
+# Systeminformationen und Pfade
+# ----------------------------------------------------------------------
+
+# Kurzname des Rechners.
+hostName=$(hostname -s)
+
+# Benutzer, unter dem dieses Skript gestartet wurde.
+sysCtlUser=$(whoami)
+
+# Skript, das später unter dem aktiven Benutzer ausgeführt wird.
+scanToScript="${SCRIPT_DIR}/script/scanto"
+
+# Aktiven Benutzer und gegebenenfalls Umgebungsvariablen ermitteln.
+source "${SCRIPT_DIR}/script/getActiveUser.sh"
+
+debug "Ermittelte Umgebungsvariablen: ${env_vars[*]}"
+
+# ----------------------------------------------------------------------
+# Argumente und Prozessinformationen
+# ----------------------------------------------------------------------
+
+# Vollständiger Aufruf des Skripts für das Log.
+log "$0 $*"
+
+# Erwartete Argumente:
+#   $1 = Auftragstyp: file, email, image oder ocr
+#   $2 = Gerät
+#   $3 = Anzeigename
+JOB="${1:-}"
+DEVICE="${2:-}"
+FRIENDLY_NAME="${3:-}"
+
+# Prozess-ID dieses Skripts.
+scriptPID=$$
+
+# ----------------------------------------------------------------------
+# Auftragstyp prüfen
+# ----------------------------------------------------------------------
+
+case "$JOB" in
+    file|email|image|ocr)
+        # Gültiger Auftragstyp.
+        ;;
+# :::::::::::::::
+
+    *)
+        # Unbekannter oder fehlender Auftragstyp.
+        log "Ungültiger Auftragstyp: ${JOB}"
+        exit 100
+        ;;
+# :::::::::::::::
+esac
+
+# ----------------------------------------------------------------------
+# Aktiven Benutzer prüfen
+# ----------------------------------------------------------------------
+
+if [[ -z "$activeUser" ]]; then
+    log "Kein aktiver Benutzer gefunden."
+    exit 2
+fi
+
+log "Systembenutzer: ${sysCtlUser}"
+
+# ----------------------------------------------------------------------
+# Diagnoseinformationen protokollieren
+# ----------------------------------------------------------------------
+
+debug "Aktiver Benutzer: ${activeUser}"
+debug "Benutzerskript: ${scanToScript}"
+debug "Argumente: $*"
+debug "Skript: ${0}"
+debug "Skriptname: ${SCRIPT_NAME}"
+debug "Skriptverzeichnis: ${SCRIPT_DIR}"
+debug "Auftragstyp: ${JOB}"
+debug "Gerät: ${DEVICE}"
+debug "Anzeigename: ${FRIENDLY_NAME}"
+debug "Prozess-ID: ${scriptPID}"
+debug "Hostname: ${hostName}"
+
+# Bei Bedarf können diese Variablen ebenfalls protokolliert werden.
+# debug "XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-}"
+# debug "DBUS_SESSION_BUS_ADDRESS: ${DBUS_SESSION_BUS_ADDRESS:-}"
+# debug "WAYLAND_DISPLAY: ${WAYLAND_DISPLAY:-}"
+
+# ----------------------------------------------------------------------
+# Arbeitsverzeichnis wechseln
+# ----------------------------------------------------------------------
+
+cd "/home/${activeUser}/" || {
+    error "Arbeitsverzeichnis konnte nicht gewechselt werden: /home/${activeUser}/"
+    exit 3
+}
+
+# ----------------------------------------------------------------------
+# Benutzerskript ausführen
+# ----------------------------------------------------------------------
+
+debug "Starte ${scanToScript} unter dem Benutzer ${activeUser}"
+
+# "$@" übergibt die ursprünglichen Argumente mit ihren ursprünglichen
+# Argumentgrenzen. Dadurch bleiben Leerzeichen innerhalb eines Arguments
+# erhalten.
+#
+# Die Umgebungsvariablen aus env_vars werden als zusätzliche Argumente
+# an scanto übergeben.
+
+debug "sudo -u $activeUser -g $(id -gn "$activeUser") '$scanToScript' '$JOB' '$DEVICE' '$FRIENDLY_NAME' '${env_vars[*]}'"
+
+sudo -u "$activeUser" -g "$(id -gn "$activeUser")" "$scanToScript" "$JOB" "$DEVICE" "$FRIENDLY_NAME" "${env_vars[@]}"
+
+# Exit-Code des aufgerufenen Skripts weitergeben.
+exit $?

@@ -1,0 +1,18 @@
+[Unit]
+Description=brscan-skey: run Script when Brother Scanner scan keys are pressed
+Wants=NetworkManager-wait-online.service
+After=NetworkManager-wait-online.service
+
+
+[Service]
+Type=forking
+User=skeyUser
+Group=scanner
+ExecStart=/opt/brother/scanner/brscan-skey/brscan-skey --service_start
+ExecStop=/opt/brother/scanner/brscan-skey/brscan-skey --service_stop
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
