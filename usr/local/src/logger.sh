@@ -20,8 +20,7 @@ set -euo pipefail
 #
 
 # Usage:
-#   source /path/to/logger.bsrc   Logger-Funktionen in ein einem Script einbinden
-#   bash /path/to/logger.bsrc     diese Ausgabe
+#   source /path/to/logger.sh   Logger-Funktionen für Skripte
 #
 # Beschreibung:
 #   Bash-Logger für debug/error/notice/proc-Ausgaben.
@@ -31,7 +30,7 @@ set -euo pipefail
 # Variablen:
 #
 #   LEVEL=debug        aktiviert debug- und proc-Ausgaben
-#   MARKER=TEXT        Prefix für Log-Meldungen
+#   MARKER=TEXT        Präfix für Log-Meldungen
 #
 #   $BASENAME          Name des aufrufenden Scripts
 #   $SCRIPT_NAME       Name des aufrufenden Scripts
@@ -47,11 +46,14 @@ set -euo pipefail
 #   error "TEXT"       Fehlermeldung
 #   debug "TEXT"       Debug-Meldung (nur bei LEVEL=debug)
 #   fEntry "TEXT" $*   Funktions-/Protokollausgabe (nur bei LEVEL=debug)
+#   
+# - Es erwartet:
+#       /usr/bin/logger.sh
 #
 # Beispiele:
-#   source /path/to/logger.bsrc
-#   LEVEL=debug source /path/to/logger.bsrc
-#   MARKER=MYAPP LEVEL=debug source /path/to/logger.bsrc
+#   source /path/to/logger.sh
+#   LEVEL=debug source /path/to/logger.sh
+#   MARKER=MYAPP LEVEL=debug source /path/to/logger.sh
 
 LEVEL="${LEVEL:-false}"
 
@@ -72,7 +74,7 @@ else
 
     USER="$(whoami)"
     uID=$(id -u "$USER")
-    gID=$(id -g "USER")
+    gID=$(id -g "$USER")
     GROUP=$(id -ng "$USER")
 
     MARKER=${MARKER:-''}
@@ -122,7 +124,7 @@ else
 
     proc_logger () {
         if [ "${LEVEL}" == 'debug' ]; then
-            logger -t "$MARKER" -p lpr.debug "[ debug-proc - ${BASENAME}:call ${FUNCNAME[2]:-main}: ${BASH_LINENO[2]}] $*"
+            logger -t "$MARKER" -p lpr.debug "[debug-proc - ${BASENAME}:call ${FUNCNAME[2]:-main}: ${BASH_LINENO[2]}] $*"
         fi
     }
 
@@ -149,7 +151,8 @@ else
             echo " $*"
         fi
     }
-
+    
+    # 
     log () {
         ${_LOG_} "$*"
     }

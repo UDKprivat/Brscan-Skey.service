@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
 #
 # Copyright (C) 2026 Ulf-Diethelm Kornblum <ulf@kornblum.de>
 #
@@ -17,7 +19,7 @@
 #
 
 #
-# scan-wrapper.sh
+# scantoSwitch.sh
 #
 # Beschreibung:
 #   Ermittelt den aktuell angemeldeten Benutzer und startet das eigentliche
@@ -28,7 +30,7 @@
 #   dass Scan-Aufträge im Kontext des aktiven Benutzers ausgeführt werden.
 #
 # Verwendung:
-#   scan-wrapper.sh <Auftragstyp> <Gerät> <Anzeigename> [Argumente...]
+#   scantoSwitch.sh <Auftragstyp> <Gerät> <Anzeigename> [Argumente...]
 #
 # Gültige Auftragstypen:
 #   file    Datei-Scan
@@ -37,10 +39,10 @@
 #   ocr     Texterkennung
 #
 # Abhängigkeiten:
-#   /usr/local/src/logger.bsrc
-#   getActiveUser.sh
-#   scanto
-#   sudo
+#   /usr/bin/sudo
+#   /usr/local/src/logger.sh
+#   ./getActiveUser.sh
+#   ./script/scanto.sh
 #
 # Exit-Codes:
 #   0       Erfolgreiche Ausführung
@@ -53,7 +55,7 @@
 # Konfiguration
 # ----------------------------------------------------------------------
 
-# Marker, der vermutlich vom Logger verwendet wird.
+# Marker, ist der Präfix für die Ausgabe.
 MARKER='BRSCAN_SKEY'
 
 # Gewünschtes Log-Level.
@@ -65,10 +67,10 @@ LEVEL='debug'
 
 # SCRIPT_DIR, SCRIPT_NAME sowie die Logging-Funktionen werden vermutlich
 # durch diese Datei bereitgestellt.
-source '/usr/local/src/logger.bsrc'
+source '/usr/local/src/logger.sh'
 
 debug "Lade Skript zur Ermittlung des aktiven Benutzers: \
-${SCRIPT_DIR}/script/getActiveUser.sh"
+${SCRIPT_DIR}/getActiveUser.sh"
 
 # ----------------------------------------------------------------------
 # Systeminformationen und Pfade
@@ -81,10 +83,10 @@ hostName=$(hostname -s)
 sysCtlUser=$(whoami)
 
 # Skript, das später unter dem aktiven Benutzer ausgeführt wird.
-scanToScript="${SCRIPT_DIR}/script/scanto"
+scanToScript="${SCRIPT_DIR}/scanto.sh"
 
 # Aktiven Benutzer und gegebenenfalls Umgebungsvariablen ermitteln.
-source "${SCRIPT_DIR}/script/getActiveUser.sh"
+source "${SCRIPT_DIR}/getActiveUser.sh"
 
 debug "Ermittelte Umgebungsvariablen: ${env_vars[*]}"
 

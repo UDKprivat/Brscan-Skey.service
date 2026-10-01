@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
 #
 # Copyright (C) 2026 Ulf-Diethelm Kornblum <ulf@kornblum.de>
 #
@@ -20,7 +22,7 @@ set -o pipefail
 
 ##############################################################################
 # Verwendung:
-#     scanto_.sh <auftrag> <gerät> <name> [parameter=value ...]
+#     scanto.sh <auftrag> <gerät> <name> [parameter=value ...]
 #
 # Beschreibung:
 #     Scannt ein Dokument mit einem Brother-Scanner und verarbeitet das
@@ -139,7 +141,7 @@ set -o pipefail
 #         - ein grafisches Benutzerkonto mit gültiger Desktop-Sitzung
 #             * Funktion geprüft mit KDE (Wayland, x11), und dem minimalen X11 System von OpenSuse)
 #         - das Logger-Skript:
-#             /usr/local/src/logger.bsrc
+#             /usr/local/src/logger.sh
 #
 # Ausgabedateien:
 #     Die vom Scanner erzeugte Datei wird zunächst im Scanformat gespeichert:
@@ -171,14 +173,14 @@ set -o pipefail
 MARKER="BRSCAN_SKEY"
 
 # Eigenes Logger-Skript laden.
-LOGGER_SCRIPT="/usr/local/src/logger.bsrc"
+LOGGER_SCRIPT="/usr/local/src/logger.sh"
 
 if [[ ! -r "$LOGGER_SCRIPT" ]]; then
     echo "Fehler: Logger-Skript nicht gefunden: $LOGGER_SCRIPT" >&2
     exit 1
 fi
 
-# shellcheck source=/usr/local/src/logger.bsrc
+# shellcheck source=/usr/local/src/logger.sh
 source "$LOGGER_SCRIPT"
 
 LEVEL="debug"
@@ -219,20 +221,21 @@ XDG_MIME="$(command -v xdg-mime || true)"
 GTK_LAUNCH="$(command -v gtk-launch || true)"
 MAGICK="$(command -v magick || true)"
 
-if [[ -z "$XDG_EMAIL" || -z "$XDG_MIME" || -z "$GTK_LAUNCH" ]]; then
-    error "Benötigte XDG-Programme wurden nicht gefunden."
-    exit 2
-fi
+testCMD() {
+    fEntry "test: '$*'"  
+    local progamName="$1"
+    if [[ ! -x "${progamName:-}" ]]; then
+        error "Programm $progamName nicht gefunden oder nicht ausführbar"
+        error 2
+    fi
+    debug "Programm $progamName gefunden und ausführbar"
+}
 
-if [[ ! -x "$SCANIMAGE" ]]; then
-    error "Scannerprogramm nicht gefunden oder nicht ausführbar: $SCANIMAGE"
-    exit 2
-fi
-
-if [[ -z "$MAGICK" ]]; then
-    error "ImageMagick wurde nicht gefunden. Benötigt wird das Programm 'magick'."
-    exit 2
-fi
+testCMD "$XDG_EMAIL"
+testCMD "$XDG_MIME"
+testCMD "$GTK_LAUNCH"
+testCMD "$SCANIMAGE"
+testCMD "$MAGICK"
 
 ###############################################################################
 # Standard-Dateimanager und Mailprogramm ermitteln
@@ -242,19 +245,19 @@ fi
 FILE_MANAGER_DESKTOP="$(
     "$XDG_MIME" query default inode/directory 2>/dev/null
 )"
-
+    
 if [[ -z "$FILE_MANAGER_DESKTOP" ||
-      ! -f "$APPLICATION_DIR/$FILE_MANAGER_DESKTOP" ]]; then
+    ! -f "$APPLICATION_DIR/$FILE_MANAGER_DESKTOP" ]]; then
     error "Kein Standard-Dateimanager gefunden."
     exit 2
 fi
 
 FILE_MANAGER="$(
-   grep -m1 '^Exec=' "$APPLICATION_DIR/$FILE_MANAGER_DESKTOP "| cut -d= -f2- | cut -w -f1
+    grep -m1 '^Exec=' "$APPLICATION_DIR/$FILE_MANAGER_DESKTOP" | cut -d= -f2- | cut -w -f1
 )"
 
 if [[ -z "$FILE_MANAGER" ]] ||
-   ! command -v "$FILE_MANAGER" >/dev/null 2>&1; then
+! command -v "$FILE_MANAGER" >/dev/null 2>&1; then
     error "Dateimanager nicht gefunden: $FILE_MANAGER"
     exit 2
 fi
@@ -375,7 +378,7 @@ for key_value in "$@"; do
     fi
 
     printf -v "$key" '%s' "$value"
-    export "${key}"
+    export "${key?}"
 
     debug "Parameter: $key=$value"
 done
@@ -400,7 +403,7 @@ elif [[ -r "$STANDARD_CONFIG_FILE" ]]; then
     [[ ! -r "$USER_CONFIG_DIR" ]] && mkdir -p "$USER_CONFIG_DIR"
     [[ ! -r "$USER_CONFIG_FILE" ]] && cp "$STANDARD_CONFIG_FILE $USER_CONFIG_DIR" \
         chmod 644 "$USER_CONFIG_FILE"
-
+    # shellcheck source=/dev/null
     source "$STANDARD_CONFIG_FILE"
     log "Standardkonfiguration geladen: $STANDARD_CONFIG_FILE"
 

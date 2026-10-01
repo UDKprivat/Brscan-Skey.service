@@ -1,0 +1,11 @@
+# Dateien die nicht im versioniert werden sollen
+
+*.tempfile
+*.log
+*.swp
+
+/home/athlon/Projekte/BRSCAN/opt/brother/scanner/brscan-skey/scantoemail.config
+/home/athlon/Projekte/BRSCAN/opt/brother/scanner/brscan-skey/scantofile.config
+/home/athlon/Projekte/BRSCAN/opt/brother/scanner/brscan-skey/scantoimage.config
+/home/athlon/Projekte/BRSCAN/opt/brother/scanner/brscan-skey/scantoocr.config
+/home/athlon/Projekte/BRSCAN/opt/brother/scanner/brscan-skey/brscan_mail.config

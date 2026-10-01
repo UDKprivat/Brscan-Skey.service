@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Bei Pipelines soll der Rückgabewert des fehlgeschlagenen Befehls
+# berücksichtigt werden – nicht nur der des letzten Befehls.
+set -euo pipefail
+
 #
 # Copyright (C) 2026 Ulf-Diethelm Kornblum <ulf@kornblum.de>
 #
@@ -17,180 +21,277 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Fester und kontrollierter Suchpfad für Systemprogramme.
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+
+# ============================================================================
+# Logging konfigurieren
+# ============================================================================
 
 MARKER='BRSCAN_SKEY'
 LEVEL='debug'
-source /usr/local/src/logger.bsrc
 
-# LEVEL='debug'
+# Eigenes Logging-Modul laden.
+source /usr/local/src/logger.sh
 
-# debug "loggDirArray: '${loggDirArray}'"
-#
-# debug "LOGGERDIR: ${LOGGERDIR}"
-# debug "BASENAME: ${BASENAME}"
-#
-# debug "SCRIPT_DIR: ${SCRIPT_DIR}"
-# debug "SCRIPT_NAME: ${SCRIPT_NAME}"
-#
-# debug "ORIGIN_PATH: ${ORIGIN_PATH}"
-# debug "ORIGIN_NAME: ${ORIGIN_NAME}"
-#
-# debug "USER: ${USER}(uID:${uID})"
-# debug "GROUP: ${GROUP}(gID:${gID})"
 
-# SOURCE_NAME=$(basename ${BASH_SOURCE[0]})
+# ============================================================================
+# Hilfe
+# ============================================================================
 
-if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    cat <<'EOT'
+   no option                : register all MFCs
+   -t (--terminate)         : terminate this tool
+   -a (--add MFC)           : register the specified MFC
+   -d (--delete) MFC        : exclude the specified MFC
+   -p (--passwd) PASSWORD   : set the password
+   -u (--username) USERNAME : set the user name
+   -l (--list)              : list the available MFCs
+   -m (--mailto)            : mail address (scan to e-mail)
+   --refresh                : refresh setting
+   --diagnosis              : print diagnosis data
+   -h --help                : show this help
 
-  cat <<"EOT"
-   no option                :register all MFCs
-   -t (--terminate)
-                            :terminate this tool
-   -a (--add MFC)           :register the specified MFC
-   -d (--delete) MFC        :exclude the specified MFC
-   -p (--passwd) PASSWORD   :set the password
-   -u (--username) USERNAMR :set the user name
-   -l (--list)              :list the available MFCs
-   -m (--mailto)            :mail address (scan to e-mail)
-   --refresh                :refresh setting
-   --diagnosis              :print diagnosis data
-   -h --help                :help
-   Copyright 2007-2018 Brother Industries, Ltd
+   Copyright 2007-2018 Brother Industries, Ltd.
 
-   These options are used by systemd.
-   --service_start          :set the hostname as USERNAMR
-                              register all MFCs
-   --service_stop           :reset the hostname as USERNAMR
-                              register all MFCs
-   --waitForNet [60]        :Waits 60 seconds for the network to come online
-                               and starts the brscan-skey.service.
+   These options are used by systemd:
+
+   --service_start          : set the hostname as USERNAME
+                               and register all MFCs
+
+   --service_stop           : reset the hostname as USERNAME
+                               and register all MFCs
+
+   --waitForNet [60]        : wait up to 60 seconds for the network
+                               to come online and start brscan-skey.service.
                                This option is initiated internally.
-   post                     :This option is invoked by systemd-sleep and
-                              restarts the service after waking up.
-                              This option is initiated internally.
-   pre                      :This option is invoked by systemd-sleep and
-                              stops the service before the system goes to sleep.
-                              This option is initiated internally.
-   Script adapted and expanded by Ulf Kornblum in 2026'
+
+   post                     : invoked by systemd-sleep and restarts
+                               the service after waking up.
+                               This option is initiated internally.
+
+   pre                      : invoked by systemd-sleep and stops
+                               the service before the system goes to sleep.
+                               This option is initiated internally.
+
+   Script adapted and expanded by Ulf Kornblum in 2026.
 EOT
 
-  exit 0
+    exit 0
 fi
 
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# ============================================================================
+# Programm- und Systempfade
+# ============================================================================
 
 BROTHEROPT="/opt/brother/scanner/brscan-skey"
-brscanSkeyExe="$BROTHEROPT/brscan-skey-exe"
-pgBrscankey=$(basename $brscanSkeyExe)
+BRSCAN_SKEY_EXE="$BROTHEROPT/brscan-skey-exe"
+
+# Dateiname des Brother-Prozesses, z. B. brscan-skey-exe.
+BRSCAN_SKEY_PROCESS="$(basename "$BRSCAN_SKEY_EXE")"
+
 SERVICE='brscan-skey.service'
-SYSTEMD_RUN=$(which systemd-run)
-SYSTEMCTL=$(which systemctl)
+
+# Pfade zu systemd-Programmen ermitteln.
+SYSTEMD_RUN="$(command -v systemd-run)"
+SYSTEMCTL="$(command -v systemctl)"
+
+
+# ============================================================================
+# Brother-Konfiguration und Logging laden
+# ============================================================================
 
 log "$0 $*"
 
-source $BROTHEROPT/brscan-skey.config
+# Brother-Konfigurationsdatei einlesen.
+source "$BROTHEROPT/brscan-skey.config"
 
-function wait_for_net () {
-  log "wait $1sec for Network"
-  for i in $(seq 1 "$1"); do
-    if ip route | grep -q '^default '; then
-      log "network is online"
-      return 0
-    fi
-    sleep 1
-    debug "$i/$1sec wait for Network"
-  done
-  error "network timeout ($1sec)"
-  return 1
+
+# ============================================================================
+# Funktionen
+# ============================================================================
+
+# Wartet, bis eine Default-Route vorhanden ist.
+#
+# Parameter:
+#   $1 - maximale Wartezeit in Sekunden
+#
+# Rückgabewert:
+#   0 - Netzwerk ist verfügbar
+#   1 - Zeitüberschreitung
+wait_for_net() {
+    local timeout="${1:-60}"
+    local second
+
+    log "wait ${timeout} sec for network"
+
+    for second in $(seq 1 "$timeout"); do
+        # Eine Default-Route zeigt an, dass das Netzwerk grundsätzlich
+        # eingerichtet ist.
+        if ip route | grep -q '^default '; then
+            log "network is online"
+            return 0
+        fi
+
+        sleep 1
+        debug "${second}/${timeout} sec: waiting for network"
+    done
+
+    error "network timeout (${timeout} sec)"
+    return 1
 }
 
-case $1 in
 
+# ============================================================================
+# Kommandoauswertung
+# ============================================================================
+
+case "${1:-}" in
+
+    # ------------------------------------------------------------------------
+    # Auf das Netzwerk warten und anschließend den systemd-Dienst starten.
+    # ------------------------------------------------------------------------
     --waitForNet)
-    LEVEL='debug'
-    debug "case '--waitForNet')"
-    wait_for_net "${2:-60}" && "${SYSTEMCTL}" start "${SERVICE}"
-    ;;
-# :::::::::::::::
+        LEVEL='debug'
+        debug "case '--waitForNet'"
 
-  post)
-    LEVEL='debug'
-    debug "case 'post')"
-    log "env $(env | grep SYSTEMD_SLEEP_ACTION)"
-    debug "$0 $*"
-    debug "${SYSTEMD_RUN} --no-block $ORIGIN_PATH/$ORIGIN_NAME --waitForNet"
-    "${SYSTEMD_RUN}" --no-block "$ORIGIN_PATH/$ORIGIN_NAME" --waitForNet
-    exit 0
-    ;;
-# :::::::::::::::
+        wait_for_net "${2:-60}" &&
+            "$SYSTEMCTL" start "$SERVICE"
+        ;;
 
-  --service_start)
-    LEVEL='debug'
-    debug "case 'service_start')"
 
-    debug "pid = $(pgrep "$pgBrscankey")"
-    if [ "$(pgrep "$pgBrscankey")" != '' ];then
-      debug "<has started> $brscanSkeyExe -> \"$(pgrep "$pgBrscankey")\" --terminate"
-      "$brscanSkeyExe" --terminate
-    fi
-    "$brscanSkeyExe" &
-    ;;
-# :::::::::::::::
+    # ------------------------------------------------------------------------
+    # Wird nach dem Aufwachen aus dem Bereitschaftsmodus aufgerufen.
+    # Der eigentliche Neustart erfolgt verzögert über systemd-run.
+    # ------------------------------------------------------------------------
+    post)
+        LEVEL='debug'
+        debug "case 'post'"
 
-  pre)
-    LEVEL='debug'
-    debug "case 'pre')"
-    log "env $(env | grep SYSTEMD_SLEEP_ACTION)"
-    systemctl stop brscan-skey.service
-    ;;
-# :::::::::::::::
+        log "env $(env | grep SYSTEMD_SLEEP_ACTION)"
+        debug "$0 $*"
+        debug "$SYSTEMD_RUN --no-block $ORIGIN_PATH/$ORIGIN_NAME --waitForNet"
 
-  -t | --terminate | --service_stop)
-    LEVEL='debug'
-    debug "case '-t | --service_stop | --terminate')"
-    log "[ \"$(pgrep "$pgBrscankey")\" != '' ]"
-    if [ "$(pgrep "$pgBrscankey")" != '' ];then
-      log "[has started] $brscanSkeyExe -> \"$(pgrep "$pgBrscankey")\" --terminate"
-      "$brscanSkeyExe" --terminate
-      kill $(pgrep "$pgBrscankey")
-    fi
-    log "pid: $(pgrep "$pgBrscankey")"
-    log "brscan-skey-exe terminated"
-    exit 0
-    ;;
-# :::::::::::::::
+        "$SYSTEMD_RUN" --no-block \
+            "$ORIGIN_PATH/$ORIGIN_NAME" \
+            --waitForNet
 
-  -l | --list)
-    debug "case '-l | -list')"
-	"$brscanSkeyExe" "$@"
-	exit 0
-    ;;
-# :::::::::::::::
+        exit 0
+        ;;
 
-  -f)
-    debug "case '-f')"
-	"$brscanSkeyExe" "$@"
-    ;;
-# :::::::::::::::
 
-  --refresh)
-    debug "case '--refresh')"
-    "$brscanSkeyExe" "$@"
-    exit 0
-    ;;
-# :::::::::::::::S
+    # ------------------------------------------------------------------------
+    # Brother-Scanner-Dienst starten.
+    #
+    # Falls bereits ein Prozess läuft, wird er zunächst beendet.
+    # ------------------------------------------------------------------------
+    --service_start)
+        LEVEL='debug'
+        debug "case '--service_start'"
 
-  *)
-    debug "case '*')"
-    log "$brscanSkeyExe $* &"
-	"$brscanSkeyExe" "$@" &
-    ;;
-# :::::::::::::::
+        running_pids="$(pgrep "$BRSCAN_SKEY_PROCESS" || true)"
 
+        if [[ -n "$running_pids" ]]; then
+            debug "[already running] $BRSCAN_SKEY_EXE -> \"$running_pids\" --terminate"
+            "$BRSCAN_SKEY_EXE" --terminate
+        fi
+
+        "$BRSCAN_SKEY_EXE" &
+        ;;
+
+
+    # ------------------------------------------------------------------------
+    # Wird vor dem Wechsel in den Bereitschaftsmodus aufgerufen.
+    # ------------------------------------------------------------------------
+    pre)
+        LEVEL='debug'
+        debug "case 'pre'"
+
+        log "env $(env | grep SYSTEMD_SLEEP_ACTION)"
+        "$SYSTEMCTL" stop "$SERVICE"
+        ;;
+
+
+    # ------------------------------------------------------------------------
+    # Brother-Scanner-Dienst beenden.
+    # ------------------------------------------------------------------------
+    -t | --terminate | --service_stop)
+        LEVEL='debug'
+        debug "case '-t | --terminate | --service_stop'"
+
+        running_pids="$(pgrep "$BRSCAN_SKEY_PROCESS" || true)"
+        log "[running processes: $running_pids]"
+
+        if [[ -n "$running_pids" ]]; then
+            log "[stopping] $BRSCAN_SKEY_EXE -> \"$running_pids\" --terminate"
+
+            # Dem Brother-Programm zunächst die Möglichkeit geben,
+            # sich kontrolliert zu beenden.
+            "$BRSCAN_SKEY_EXE" --terminate
+
+            # Verbleibende Prozesse beenden.
+            # shellcheck disable=SC2086
+            kill $running_pids 2>/dev/null || true
+        fi
+
+        log "pid: $(pgrep "$BRSCAN_SKEY_PROCESS" || true)"
+        log "brscan-skey-exe terminated"
+        exit 0
+        ;;
+
+
+    # ------------------------------------------------------------------------
+    # Verfügbare MFC-Geräte auflisten.
+    # ------------------------------------------------------------------------
+    -l | --list)
+        debug "case '-l | --list'"
+
+        "$BRSCAN_SKEY_EXE" "$@"
+        exit 0
+        ;;
+
+
+    # ------------------------------------------------------------------------
+    # Interne bzw. zusätzliche Option -f direkt weiterreichen.
+    # ------------------------------------------------------------------------
+    -f)
+        debug "case '-f'"
+
+        "$BRSCAN_SKEY_EXE" "$@"
+        ;;
+
+
+    # ------------------------------------------------------------------------
+    # Einstellungen aktualisieren.
+    # ------------------------------------------------------------------------
+    --refresh)
+        debug "case '--refresh'"
+
+        "$BRSCAN_SKEY_EXE" "$@"
+        exit 0
+        ;;
+
+
+    # ------------------------------------------------------------------------
+    # Standardfall:
+    # Alle übergebenen Argumente an brscan-skey-exe weiterreichen und
+    # den Prozess im Hintergrund starten.
+    # ------------------------------------------------------------------------
+    *)
+        debug "case '*'"
+        log "$BRSCAN_SKEY_EXE $* &"
+
+        "$BRSCAN_SKEY_EXE" "$@" &
+        ;;
 esac
 
-log "brscan-skey.service is $( "${SYSTEMCTL}" is-active brscan-skey.service)"
 
+# ============================================================================
+# Abschlussprotokoll
+# ============================================================================
+
+log "brscan-skey.service is $( "$SYSTEMCTL" is-active "$SERVICE" )"
 log "quit (no exit)"
-

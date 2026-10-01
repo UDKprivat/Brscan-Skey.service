@@ -1,8 +1,8 @@
-#!/bin/bash 
-set -euo pipefail
+# #/bin/bash 
+# set -euo pipefail
 
 # Usage:
-#   source /path/to/scriptname.sh
+#   source /path/to/getActiveUser.sh
 #
 # Beschreibung:
 #   Dieses Script ist zum Einbinden via "source" gedacht und ermittelt die aktuell
@@ -19,20 +19,17 @@ set -euo pipefail
 #       WAYLAND_DISPLAY
 #       DISPLAY
 #       XAUTHORITY
-#   - gibt Debug-Informationen über logger.bsrc aus
+#   - gibt Debug-Informationen über logger.sh aus
 #
 # Wichtig:
-#   - Das Script beendet die aufrufende Shell bei Fehlern durch:
-#       set -euo pipefail
-#   - Es ist nicht für direktes Ausführen als normales Programm gedacht
 #   - Es erwartet:
-#       /usr/local/src/logger.bsrc
-#       loginctl
-#       sudo
-#       find
+#       /usr/local/src/logger.sh
+#       /usr/bin/loginctl
+#       /usr/bin/sudo
+#       /usr/bin/find
 #
 # Beispiel:
-#   source /path/to/scriptname.sh
+#   source /path/to/getActiveUser.sh
 #   printf '%s\n' "${env_vars[@]}"
 #
 # Hinweis:
@@ -41,9 +38,9 @@ set -euo pipefail
 
 MARKER='BRSCAN_SKEY'
 
-source /usr/local/src/logger.bsrc
+source /usr/local/src/logger.sh
 
-debug " actual USER : ${USER}"
+debug "actual USER: ${USER}"
 
 while read session activeID activeUser seat rest; do
 	debug "    -- session:${session}, activeID:${activeID}, activeUser:${activeUser}, seat:${seat}, ...${rest}"
@@ -87,15 +84,8 @@ case "$type" in
 
 	x11)
 		has_var DISPLAY || env_vars+=("DISPLAY=${display:-:0}")
-		has_var XAUTHORITY || env_vars+=("XAUTHORITY=$(sudo -u "${activeUser}" find "/tmp" -maxdepth 1 -type f -user "${activeUser}" -name 'xauth*')")
-	;;
-# :::::::::::::::
-
-	*)
-		# generic fallback
-		has_var DISPLAY || env_vars+=("DISPLAY=${display:-:0}")
-		has_var XAUTHORITY || env_vars+=("XAUTHORITY=/home/${activeUser}/.Xauthority")
-		has_var WAYLAND_DISPLAY || env_vars+=("WAYLAND_DISPLAY=wayland-0")
+		has_var XAUTHORITY || env_vars+=("XAUTHORITY=$(sudo -u "${activeUser}" \
+			find "/tmp" -maxdepth 1 -type f -user "${activeUser}" -name 'xauth*')")
 	;;
 # :::::::::::::::
 
