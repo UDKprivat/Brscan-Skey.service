@@ -1,7 +1,6 @@
 # #!/bin/bash 
 set -euo pipefail
 
-# Entwicklung von debug/error/notice-logger
 #
 # Copyright (C) 2026 Ulf-Diethelm Kornblum <ulf@kornblum.de>
 #
