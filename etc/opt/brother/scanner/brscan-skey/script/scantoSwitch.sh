@@ -180,9 +180,11 @@ debug "Starte ${scanToScript} unter dem Benutzer ${activeUser}"
 # Die Umgebungsvariablen aus env_vars werden als zusätzliche Argumente
 # an scanto übergeben.
 
-debug "sudo -u $activeUser -g $(id -gn "$activeUser") '$scanToScript' '$JOB' '$DEVICE' '$FRIENDLY_NAME' '${env_vars[*]}'"
+debug "sudo -u $activeUser -g $(id -gn "$activeUser") \
+  '$scanToScript' '$JOB' '$DEVICE' '$FRIENDLY_NAME' '${env_vars[*]}'"
 
-sudo -u "$activeUser" -g "$(id -gn "$activeUser")" "$scanToScript" "$JOB" "$DEVICE" "$FRIENDLY_NAME" "${env_vars[@]}"
+sudo -u "$activeUser" -g "$(id -gn "$activeUser")" \
+  "$scanToScript" "$JOB" "$DEVICE" "$FRIENDLY_NAME" "${env_vars[@]}"
 
 # Exit-Code des aufgerufenen Skripts weitergeben.
 exit $?

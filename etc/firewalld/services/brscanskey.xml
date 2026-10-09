@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>brscan-skey</short>
+  <description>The scanner function 'brscan-skey' requires the ports to start a scan app on the computer..</description>
+  <port protocol="tcp" port="54921"/>
+  <port protocol="udp" port="54925"/>
+</service>

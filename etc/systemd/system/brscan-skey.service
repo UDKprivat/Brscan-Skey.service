@@ -6,8 +6,6 @@ After=NetworkManager-wait-online.service
 
 [Service]
 Type=forking
-User=skeyUser
-Group=scanner
 ExecStart=/opt/brother/scanner/brscan-skey/brscan-skey --service_start
 ExecStop=/opt/brother/scanner/brscan-skey/brscan-skey --service_stop
 

@@ -128,25 +128,25 @@ else
     }
 
     log_echo () {
-        echo -n "[$(date +"%m-%d %H:%M:%S") $MARKER${BASENAME}:${FUNCNAME[2]:-main}: ${BASH_LINENO[1]}]"
+        echo -n "[$(date +"%m-%d %H:%M:%S") $MARKER:${BASENAME}:${FUNCNAME[2]:-main}: ${BASH_LINENO[1]}]"
         echo " $*"
     }
 
     error_echo () {
-        echo -n "$C_ERROR\[$(date +"%m-%d %H:%M:%S") error - $MARKER${BASENAME}:${FUNCNAME[2]:-main}: ${BASH_LINENO[1]}\]$RESET"
+        echo -n "$C_ERROR\[$(date +"%m-%d %H:%M:%S") error - $MARKER:${BASENAME}:${FUNCNAME[2]:-main}: ${BASH_LINENO[1]}\]$RESET"
         echo " $*"
     }
 
     debug_echo () {
         if [ "${LEVEL}" == 'debug' ]; then
-            echo -n "$C_DEBUG\[$(date +"%m-%d %H:%M:%S") debug - $MARKER${BASENAME}:${FUNCNAME[2]:-main}: ${BASH_LINENO[1]}\]$RESET"
+            echo -n "$C_DEBUG\[$(date +"%m-%d %H:%M:%S") debug - $MARKER:${BASENAME}:${FUNCNAME[2]:-main}: ${BASH_LINENO[1]}\]$RESET"
             echo " $*"
         fi
     }
 
     proc_echo () {
         if [ "${LEVEL}" == 'debug' ]; then
-            echo -n "$C_DEBUG\[$(date +"%m-%d %H:%M:%S") $MARKER${BASENAME}:call ${FUNCNAME[2]:-main}: ${BASH_LINENO[2]}\]$RESET"
+            echo -n "$C_DEBUG\[$(date +"%m-%d %H:%M:%S") $MARKER:${BASENAME}:call ${FUNCNAME[2]:-main}: ${BASH_LINENO[2]}\]$RESET"
             echo " $*"
         fi
     }

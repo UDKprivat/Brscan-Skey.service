@@ -17,8 +17,8 @@ set -euo pipefail
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-sudo systemctl daemon-reload
+systemctl daemon-reload
 
-sudo systemctl enable brscan-skey.service
+systemctl enable brscan-skey.service
 
-sudo systemctl restart brscan-skey.service
+systemctl restart brscan-skey.service
