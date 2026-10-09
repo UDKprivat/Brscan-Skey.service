@@ -14,7 +14,9 @@ set -euo pipefail
 MARKER="BRSCAN_SKEY"
 
 # Zentrales Logging-Script einbinden.
-source "/usr/local/src/logger.sh"
+if [[ -s "usr/local/src/logger.sh" ]] ; then
+  source "usr/local/src/logger.sh"
+fi
 
 # Eigentümer und Gruppenzugehörigkeiten.
 USR_GRP_A="root:scanner"
