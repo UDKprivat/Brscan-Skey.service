@@ -84,12 +84,14 @@ dieses Projekts bereits mit dem Brother-Treiber funktionieren.
 
 ## Installation
 
-  ``` 
-    cd install/dir/
-    sudo ./testInstall.sh --install
-  ```
-
-
+Download ZIP
+```
+  cp Brscan-Skey.service-main.zip install/dir
+  unzip Brscan-Skey.service-main.zip
+  cd install/dir
+  chmod +x *.sh
+  sudo ./testInstall.sh --install
+```
 ### Port öffnen
 
 Nach der Installation ist in dem Verzeichnis `/etc/firewalld/services` die Datei `brscanskey.xml`
