@@ -94,7 +94,7 @@ case "$type" in
 
 	wayland)
 		has_var WAYLAND_DISPLAY || env_vars+=("WAYLAND_DISPLAY=$(sudo -u "${activeUser}" \
-			find "/run/user/1001" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' 2>/dev/null )")
+			find "/run/user/${activeID}" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' 2>/dev/null )")
 	;;
 # :::::::::::::::
 
