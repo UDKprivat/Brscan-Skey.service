@@ -124,3 +124,6 @@ der gesamte Code von 'Hand' überprüft worden.
 
 Mit diesem Kommentar möchte ich ausdrücken, das sehr viele Programmierer, die ihre Programmtexte für das 
 Training der KIs zur Verfügung gestellt haben, indirekt an diesem Projekt mit gewirkt haben.
+
+https://github.com/UDKprivat/Brscan-Skey.service/tree/main
+
