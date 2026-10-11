@@ -80,6 +80,7 @@ ETC_FIREWALL_SERVICE="etc/firewalld/services"
 
 USR_LOCAL_SRC="usr/local/src"
 
+NAME_CLIENT="${2:-host_$(( $RANDOM % 100))}"
 
 ###############################################################################
 # HilfeText ausgeben
@@ -93,10 +94,12 @@ Installiert die Brother-Scanner-Dateien entweder in ein Testverzeichnis
 oder direkt in das Root-Dateisystem.
 
 Optionen:
-  --test,     Testinstallation nach ${TST_DIR}
-  --install   Produktivinstallation nach /
-  --rmTest    Testverzeichnis ${TST_DIR} löschen
-  -h, --help  Diese Hilfe anzeigen
+  --test [client]     Testinstallation nach ${TST_DIR}
+                        client [host_nn] ist der Anzeigename am Scanner
+  --install [client]  Produktivinstallation nach /
+                        client [host_nn] ist der Anzeigename am Scanner
+  --rmTest            Testverzeichnis ${TST_DIR} löschen
+  -h, --help          Diese Hilfe anzeigen
 
 Zielverzeichnisse:
 
@@ -155,6 +158,11 @@ BRSCAN_FILES() {
     chown -R "$USR_GRP_A" "../"
     chmod 0755 "brscan-skey"
     chmod 0644 "brscan-skey.config"
+
+    # den hostname in die config schreiben
+    log "ClientName = '${NAME_CLIENT}'"
+    regExp="s/user=[a-zA-Z0-9_]\+/user=${NAME_CLIENT}/"
+    sed -i "$regExp" "brscan-skey.config"
 
     # Installierte Dateien zur Kontrolle anzeigen.
     log "$(ls -lsa .)"

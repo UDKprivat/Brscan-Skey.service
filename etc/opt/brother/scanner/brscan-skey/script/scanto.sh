@@ -228,7 +228,7 @@ testCMD() {
         error "Programm $progamName nicht gefunden oder nicht ausführbar"
         error 2
     fi
-    debug "Programm $progamName gefunden und ausführbar"
+    log "Programm $progamName gefunden und ausführbar"
 }
 
 testCMD "$XDG_EMAIL"
@@ -262,8 +262,8 @@ if [[ -z "$FILE_MANAGER" ]] ||
     exit 2
 fi
 
-debug "Dateimanager: $FILE_MANAGER"
-debug "Desktop-Datei des Dateimanagers: $FILE_MANAGER_DESKTOP"
+log "Dateimanager: $FILE_MANAGER"
+log "Desktop-Datei des Dateimanagers: $FILE_MANAGER_DESKTOP"
 
 # Standard-Mailprogramm bestimmen.
 MAIL_CLIENT_DESKTOP="$(
@@ -286,8 +286,8 @@ if [[ -z "$MAIL_CLIENT" ]] ||
     exit 2
 fi
 
-debug "Mailprogramm: $MAIL_CLIENT"
-debug "Desktop-Datei des Mailprogramms: $MAIL_CLIENT_DESKTOP"
+log "Mailprogramm: $MAIL_CLIENT"
+log "Desktop-Datei des Mailprogramms: $MAIL_CLIENT_DESKTOP"
 
 ###############################################################################
 # Kommandozeilenparameter auswerten
@@ -399,10 +399,16 @@ if [[ -r "$USER_CONFIG_FILE" ]]; then
 elif [[ -r "$STANDARD_CONFIG_FILE" ]]; then
     # shellcheck source=/dev/null
 
-    debug "kopiere $STANDARD_CONFIG_FILE nach $USER_CONFIG_DIR"
-    [[ ! -r "$USER_CONFIG_DIR" ]] && mkdir -p "$USER_CONFIG_DIR"
-    [[ ! -r "$USER_CONFIG_FILE" ]] && cp "$STANDARD_CONFIG_FILE $USER_CONFIG_DIR" \
-        chmod 644 "$USER_CONFIG_FILE"
+    log "kopiere $STANDARD_CONFIG_FILE nach $USER_CONFIG_FILE"
+    if [[ ! -r "$USER_CONFIG_DIR" ]]; then
+      mkdir -p "$USER_CONFIG_DIR"
+    fi
+
+    if [[ ! -r "$USER_CONFIG_FILE" ]]; then
+      cp "$STANDARD_CONFIG_FILE" "$USER_CONFIG_FILE"
+      chmod 644 "$USER_CONFIG_FILE"
+    fi
+
     # shellcheck source=/dev/null
     source "$STANDARD_CONFIG_FILE"
     log "Standardkonfiguration geladen: $STANDARD_CONFIG_FILE"
@@ -505,10 +511,12 @@ OUTPUT_DIR="$USER_HOME/$path"
 OUTPUT_FILE="$OUTPUT_DIR/$fileName.$format"
 TARGET_FILE="$OUTPUT_DIR/$fileName.$targetFormat"
 
-mkdir -p "$OUTPUT_DIR" || {
-    error "Zielverzeichnis konnte nicht angelegt werden: $OUTPUT_DIR"
-    exit 1
-}
+if [[ ! -r "$OUTPUT_DIR" ]] ; then
+  mkdir -p "$OUTPUT_DIR" || {
+      error "Zielverzeichnis konnte nicht angelegt werden: $OUTPUT_DIR"
+      exit 1
+  }
+fi 
 
 debug "OUTPUT_DIR: $OUTPUT_DIR"
 debug "OUTPUT_FILE: $OUTPUT_FILE"
