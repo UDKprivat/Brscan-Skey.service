@@ -65,6 +65,8 @@ Benötigt werden üblicherweise:
 
 - das Brother-Programm `brscan-skey`
 
+- das Programmpaket `ImageMagick`
+
 - eine funktionierende Netzwerk-Verbindung zum Scanner
 
 Die genaue Treiber-Version hängt vom verwendeten Brother-Modell ab. Der Scanner sollte vor der Installation
