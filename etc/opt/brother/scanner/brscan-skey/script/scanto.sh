@@ -211,6 +211,7 @@ log "Aufruf: $0 $*"
 debug "SCRIPT_NAME: $SCRIPT_NAME"
 debug "ORIGIN_PATH: $ORIGIN_PATH"
 debug "STANDARD_CONFIG_DIR: $STANDARD_CONFIG_DIR"
+log "$XDG_DATA_HOME"
 
 ###############################################################################
 # Benötigte Programme ermitteln
@@ -241,23 +242,46 @@ testCMD "$MAGICK"
 # Standard-Dateimanager und Mailprogramm ermitteln
 ###############################################################################
 
+search_Desktops_In_Paths() {
+
+  local fileName=$1
+  debug "suche $fileName"
+
+  local xdg_search_path=("$XDG_DATA_HOME" "/usr/local/share/" "/usr/share/")
+
+  for dir in "${xdg_search_path[@]}"; do
+    if [ -d "$dir" ]; then
+       # Verzeichnis existiert
+        local foundDesktop=$(
+          find "$dir" -maxdepth 4 -type f -name "$fileName" 
+        )
+        if [[ -n $foundDesktop ]]; then
+          # gefunden, dann raus
+          break
+        fi
+    fi
+  done
+  echo "$foundDesktop"
+}
+
 # Standard-Dateimanager bestimmen.
 FILE_MANAGER_DESKTOP="$(
     "$XDG_MIME" query default inode/directory 2>/dev/null
 )"
-    
-if [[ -z "$FILE_MANAGER_DESKTOP" ||
-    ! -f "$APPLICATION_DIR/$FILE_MANAGER_DESKTOP" ]]; then
+
+log "$FILE_MANAGER_DESKTOP"
+REAL_FILE_MAN_DESKTOP="$(search_Desktops_In_Paths "$FILE_MANAGER_DESKTOP")"
+
+if [[ ! -r "$REAL_FILE_MAN_DESKTOP" ]]; then
     error "Kein Standard-Dateimanager gefunden."
     exit 2
 fi
 
 FILE_MANAGER="$(
-    grep -m1 '^Exec=' "$APPLICATION_DIR/$FILE_MANAGER_DESKTOP" | cut -d= -f2- | cut -w -f1
+    grep -m1 '^Exec=' "$REAL_FILE_MAN_DESKTOP" | cut -d= -f2- | cut -w -f1
 )"
 
-if [[ -z "$FILE_MANAGER" ]] ||
-! command -v "$FILE_MANAGER" >/dev/null 2>&1; then
+if [[ -z "$FILE_MANAGER" ]] || ! command -v "$FILE_MANAGER" >/dev/null 2>&1; then
     error "Dateimanager nicht gefunden: $FILE_MANAGER"
     exit 2
 fi
@@ -270,18 +294,20 @@ MAIL_CLIENT_DESKTOP="$(
     "$XDG_MIME" query default x-scheme-handler/mailto 2>/dev/null
 )"
 
-if [[ -z "$MAIL_CLIENT_DESKTOP" ||
-      ! -f "$APPLICATION_DIR/$MAIL_CLIENT_DESKTOP" ]]; then
+log "$MAIL_CLIENT_DESKTOP"
+REAL_MAIL_CLIENT_DESKTOP="$(search_Desktops_In_Paths "$MAIL_CLIENT_DESKTOP")"
+log "$REAL_MAIL_CLIENT_DESKTOP"
+
+if [[ ! -r "$REAL_MAIL_CLIENT_DESKTOP" ]]; then
     error "Kein Standard-Mailprogramm gefunden."
     exit 2
 fi
 
 MAIL_CLIENT="$(
-   grep -m1 '^Exec=' "$APPLICATION_DIR/$MAIL_CLIENT_DESKTOP" | cut -d= -f2- | cut -w -f1
+   grep -m1 '^Exec=' "$REAL_MAIL_CLIENT_DESKTOP" | cut -d= -f2- | cut -w -f1
 )"
 
-if [[ -z "$MAIL_CLIENT" ]] ||
-   ! command -v "$MAIL_CLIENT" >/dev/null 2>&1; then
+if [[ -z "$MAIL_CLIENT" ]] || ! command -v "$MAIL_CLIENT" >/dev/null 2>&1; then
     error "Mailprogramm nicht gefunden: $MAIL_CLIENT"
     exit 2
 fi
@@ -621,7 +647,7 @@ case "$JOB" in
         fi
 
         debug "prüfe Mailclient $MAIL_CLIENT"
-        if ! pgrep -u "$CURRENT_USER" "$MAIL_CLIENT" >/dev/null 2>&1; then
+        if ! pgrep -u "$CURRENT_USER" "$( basename "$MAIL_CLIENT" )" >/dev/null 2>&1; then
             error "Mailprogramm konnte nicht gestartet werden: $MAIL_CLIENT"
             exit 1
         fi
